@@ -1,0 +1,140 @@
+{
+  "name": "marcus-ai-performance-marketer",
+  "version": "1.0.0",
+  "description": "Marcus - AI Performance Marketing Engine with OpenAI integration, Google/Meta APIs, and real-time campaign optimization",
+  "private": true,
+  "author": "Marcus Team",
+  "license": "MIT",
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "cd server && npm run dev",
+    "dev:server-only": "cd server && npm run dev",
+    "dev:client-only": "cd client && npm run dev",
+
+    "build": "npm run build:shared && npm run build:client && npm run build:server",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "build:shared": "cd shared && npm run build",
+
+    "start": "concurrently \"npm run start:server\" \"npm run start:client\"",
+    "start:server": "cd server && npm start",
+    "start:client": "cd client && npm run preview",
+    "start:prod": "cd server && npm start",
+
+    "test": "npm run test:server && npm run test:client",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test",
+    "test:integration": "jest tests/integration --config jest.integration.config.js",
+    "test:e2e": "playwright test tests/e2e",
+
+    "lint": "npm run lint:client && npm run lint:server",
+    "lint:client": "cd client && npm run lint",
+    "lint:server": "cd server && npm run lint",
+    "lint:fix": "npm run lint:client -- --fix && npm run lint:server -- --fix",
+
+    "clean": "npm run clean:client && npm run clean:server && npm run clean:root",
+    "clean:client": "cd client && rm -rf dist node_modules",
+    "clean:server": "cd server && rm -rf dist node_modules logs",
+    "clean:root": "rm -rf node_modules",
+
+    "install:all": "npm install && npm run install:client && npm run install:server",
+    "install:client": "cd client && npm install",
+    "install:server": "cd server && npm install",
+
+    "db:seed": "cd server && npm run db:seed",
+    "db:migrate": "cd server && npm run db:migrate",
+    "db:reset": "cd server && npm run db:reset",
+
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+
+    "deploy:staging": "scripts/deploy.sh staging",
+    "deploy:production": "scripts/deploy.sh production",
+
+    "health": "npm run health:server && npm run health:client",
+    "health:server": "curl -f http://localhost:5000/health || exit 1",
+    "health:client": "curl -f http://localhost:3000 || exit 1",
+
+    "marcus:demo": "npm run db:seed && npm run dev",
+    "marcus:setup": "npm run install:all && npm run db:seed",
+    "marcus:test-ai": "cd server && node src/test/openai-api-test.js",
+    "marcus:analytics": "npm run test && npm run lint && echo 'Marcus Health Check Complete'"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
+    "playwright": "^1.40.0",
+    "prettier": "^3.1.0",
+    "eslint": "^8.55.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "npm test"
+    }
+  },
+  "lint-staged": {
+    "client/**/*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "server/**/*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "shared/**/*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/marcus-ai-performance-marketer.git"
+  },
+  "keywords": [
+    "ai",
+    "performance-marketing",
+    "google-ads",
+    "meta-ads",
+    "openai",
+    "marketing-automation",
+    "roas-optimization",
+    "real-time-analytics",
+    "campaign-management"
+  ],
+  "marcus": {
+    "version": "1.0.0",
+    "features": {
+      "ai-consultant": true,
+      "real-time-performance": true,
+      "auto-optimization": true,
+      "multi-platform": ["META", "GOOGLE", "TIKTOK"],
+      "live-monitoring": true
+    },
+    "platforms": {
+      "supported": ["META", "GOOGLE", "TIKTOK", "LINKEDIN"],
+      "primary": ["META", "GOOGLE"]
+    },
+    "requirements": {
+      "openai-api": "required",
+      "google-ads-api": "optional",
+      "meta-api": "optional",
+      "mongodb": "required"
+    }
+  }
+}

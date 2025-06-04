@@ -1,0 +1,195 @@
+/* client/src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Marcus Global Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0F172A;
+  color: #F8FAFC;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1E293B;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
+
+/* Marcus Animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.6);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.float-animation {
+  animation: float 6s ease-in-out infinite;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Marcus Theme Classes */
+.marcus-gradient-bg {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
+}
+
+.marcus-glass {
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.marcus-button {
+  @apply px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 active:scale-95;
+  background: linear-gradient(135deg, #3B82F6, #1D4ED8);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+.marcus-button:hover {
+  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.5);
+}
+
+.marcus-card {
+  @apply bg-gray-800/40 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6;
+  transition: all 0.3s ease;
+}
+
+.marcus-card:hover {
+  @apply border-blue-500/30 bg-gray-800/60;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+
+/* Status Indicators */
+.status-idle {
+  @apply text-gray-400 border-gray-600;
+}
+
+.status-analyzing {
+  @apply text-blue-400 border-blue-500;
+  animation: pulse 2s infinite;
+}
+
+.status-creating {
+  @apply text-yellow-400 border-yellow-500;
+  animation: pulse 2s infinite;
+}
+
+.status-optimizing {
+  @apply text-green-400 border-green-500;
+  animation: pulse 2s infinite;
+}
+
+.status-running {
+  @apply text-purple-400 border-purple-500;
+  animation: pulse 2s infinite;
+}
+
+/* Performance Metrics */
+.metric-positive {
+  @apply text-green-400;
+}
+
+.metric-negative {
+  @apply text-red-400;
+}
+
+.metric-neutral {
+  @apply text-blue-400;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .marcus-card {
+    @apply p-4;
+  }
+  
+  .marcus-button {
+    @apply px-4 py-2 text-sm;
+  }
+}
+
+/* Dark Mode Optimizations */
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+/* Focus States for Accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900;
+}
+
+/* Loading States */
+.loading-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Text Selection */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}

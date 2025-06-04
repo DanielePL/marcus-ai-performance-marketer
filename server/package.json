@@ -1,0 +1,50 @@
+{
+  "name": "marcus-ai-server",
+  "version": "1.0.0",
+  "description": "Marcus AI Performance Marketer Backend Server",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "node src/test/google-ads-connection-test.js",
+    "test:google-ads": "node src/test/google-ads-connection-test.js",
+    "test:openai": "node src/test/openai-api-test.js",
+    "build": "echo 'No build step required for Node.js'",
+    "lint": "eslint src/",
+    "clean": "rm -rf logs/*.log"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "google-ads-api": "^19.0.4-rest-beta",
+    "googleapis": "^149.0.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "morgan": "^1.10.0",
+    "node-fetch": "^2.7.0",
+    "openai": "^5.1.0",
+    "socket.io": "^4.7.4"
+  },
+  "devDependencies": {
+    "eslint": "^8.55.0",
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "marcus",
+    "ai",
+    "performance-marketing",
+    "google-ads",
+    "automation"
+  ],
+  "author": "Marcus AI Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
