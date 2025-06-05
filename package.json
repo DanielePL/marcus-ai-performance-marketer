@@ -64,8 +64,8 @@
     "deploy:production": "scripts/deploy.sh production",
 
     "health": "npm run health:server && npm run health:client",
-    "health:server": "curl -f http://localhost:5000/health || exit 1",
-    "health:client": "curl -f http://localhost:3000 || exit 1",
+    "health:server": "curl -f http://localhost:3000/health || exit 1",
+    "health:client": "curl -f http://localhost:3001 || exit 1",
 
     "marcus:demo": "npm run db:seed && npm run dev",
     "marcus:setup": "npm run install:all && npm run db:seed",

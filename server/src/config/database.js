@@ -10,7 +10,7 @@ class DatabaseConfig {
     this.isConnected = false;
     this.connectionAttempts = 0;
     this.maxRetries = 5;
-    this.retryDelay = 5000; // 5 seconds
+    this.retryDelay = 3000; // 5 seconds
 
     // Event listeners setup
     this.setupEventListeners();
