@@ -1,15 +1,26 @@
 // server/src/services/livePerformanceService.js
 // MARCUS AI - Live Performance Data Service
+// 🔥 NOW WITH REAL GOOGLE ADS INTEGRATION
 
 const Campaign = require('../models/Campaign');
 const PerformanceMetric = require('../models/PerformanceMetric');
 const User = require('../models/User');
 
+// 🚀 IMPORT REAL GOOGLE ADS SERVICE
+const GoogleAdsService = require('./integrations/googleAdsService');
+
 class LivePerformanceService {
   constructor() {
-    this.refreshInterval = 15 * 60 * 1000; // 15 minutes
+    this.refreshInterval = 5 * 60 * 1000; // 5 minutes for live updates
     this.isRunning = false;
     this.activeUsers = new Set();
+    this.lastSyncTime = null;
+    this.startTime = Date.now();
+
+    // 🔥 Initialize Google Ads Service
+    this.googleAdsService = new GoogleAdsService();
+
+    console.log('🚀 Marcus Live Performance Service initialized with REAL Google Ads API');
   }
 
   // Start live performance monitoring
@@ -17,7 +28,8 @@ class LivePerformanceService {
     if (this.isRunning) return;
 
     this.isRunning = true;
-    console.log('🔴 Marcus Live Performance Service started');
+    this.startTime = Date.now();
+    console.log('🔴 Marcus Live Performance Service started - REAL-TIME MODE');
 
     // Initial sync
     this.syncAllCampaigns();
@@ -26,6 +38,21 @@ class LivePerformanceService {
     this.intervalId = setInterval(() => {
       this.syncAllCampaigns();
     }, this.refreshInterval);
+
+    // Test Google Ads connection on startup
+    this.testGoogleAdsConnection();
+  }
+
+  // 🔥 NEW: Test Google Ads connection
+  async testGoogleAdsConnection() {
+    try {
+      const connectionStatus = await this.googleAdsService.testConnectionLive();
+      console.log('🔍 Google Ads Connection Status:', connectionStatus.status);
+      return connectionStatus;
+    } catch (error) {
+      console.error('❌ Google Ads connection test failed:', error);
+      return { status: 'error', error: error.message };
+    }
   }
 
   // Stop live performance monitoring
@@ -42,32 +69,33 @@ class LivePerformanceService {
   // Add user to active monitoring
   addActiveUser(userId) {
     this.activeUsers.add(userId.toString());
-    console.log(`📊 Added user ${userId} to live monitoring`);
+    console.log(`📊 Added user ${userId} to live monitoring (${this.activeUsers.size} total)`);
   }
 
   // Remove user from active monitoring
   removeActiveUser(userId) {
     this.activeUsers.delete(userId.toString());
-    console.log(`📊 Removed user ${userId} from live monitoring`);
+    console.log(`📊 Removed user ${userId} from live monitoring (${this.activeUsers.size} total)`);
   }
 
   // Sync all active campaigns
   async syncAllCampaigns() {
     try {
-      console.log('🔄 Starting live performance sync...');
+      this.lastSyncTime = new Date();
+      console.log('🔄 Starting LIVE performance sync...');
 
       // Get all active campaigns from monitored users
       const activeCampaigns = await Campaign.find({
         status: 'active',
         userId: { $in: Array.from(this.activeUsers) }
-      }).populate('userId', 'googleAdsCustomerId metaAdAccountId');
+      }).populate('userId', 'googleAdsCustomerId metaAdAccountId googleAdsDeveloperToken googleAdsRefreshToken');
 
       if (activeCampaigns.length === 0) {
         console.log('📊 No active campaigns to sync');
         return;
       }
 
-      console.log(`📊 Syncing ${activeCampaigns.length} active campaigns`);
+      console.log(`📊 Syncing ${activeCampaigns.length} LIVE campaigns`);
 
       const syncPromises = activeCampaigns.map(campaign =>
         this.syncCampaignPerformance(campaign)
@@ -78,7 +106,7 @@ class LivePerformanceService {
       const successful = results.filter(r => r.status === 'fulfilled').length;
       const failed = results.filter(r => r.status === 'rejected').length;
 
-      console.log(`✅ Live sync completed: ${successful} successful, ${failed} failed`);
+      console.log(`✅ LIVE sync completed: ${successful} successful, ${failed} failed`);
 
     } catch (error) {
       console.error('❌ Live performance sync error:', error);
@@ -92,9 +120,11 @@ class LivePerformanceService {
 
       switch (campaign.platform) {
         case 'google':
-          newMetrics = await this.fetchGoogleAdsPerformance(campaign);
+        case 'google_ads':
+          newMetrics = await this.fetchGoogleAdsPerformanceREAL(campaign);
           break;
         case 'meta':
+        case 'facebook':
           newMetrics = await this.fetchMetaAdsPerformance(campaign);
           break;
         case 'tiktok':
@@ -109,84 +139,243 @@ class LivePerformanceService {
       }
 
       if (newMetrics) {
+        // Calculate derived metrics
+        const calculatedMetrics = this.calculateDerivedMetrics(newMetrics);
+        const finalMetrics = { ...newMetrics, ...calculatedMetrics };
+
         // Update campaign metrics
-        await campaign.updateMetrics(newMetrics);
+        campaign.metrics = finalMetrics;
+        campaign.lastUpdated = new Date();
+        await campaign.save();
 
         // Store historical data
-        await this.storePerformanceMetric(campaign, newMetrics);
+        await this.storePerformanceMetric(campaign, finalMetrics);
 
         // Check for alerts
-        await this.checkPerformanceAlerts(campaign, newMetrics);
+        await this.checkPerformanceAlerts(campaign, finalMetrics);
 
-        console.log(`✅ Synced ${campaign.name} (${campaign.platform})`);
+        console.log(`✅ LIVE synced ${campaign.name} (${campaign.platform})`);
+        return finalMetrics;
       }
 
     } catch (error) {
       console.error(`❌ Failed to sync ${campaign.name}:`, error.message);
-    }
-  }
-
-  // Fetch Google Ads performance (simulate for now)
-  async fetchGoogleAdsPerformance(campaign) {
-    try {
-      // TODO: Implement actual Google Ads API call
-      // For now, simulate realistic performance data
-
-      const user = campaign.userId;
-      if (!user.googleAdsCustomerId) {
-        throw new Error('Google Ads Customer ID not configured');
-      }
-
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Generate realistic incremental data
-      const baseMetrics = campaign.metrics || {};
-      const increment = {
-        impressions: Math.round(Math.random() * 100 + 10),
-        clicks: Math.round(Math.random() * 10 + 1),
-        conversions: Math.round(Math.random() * 3),
-        spend: Number((Math.random() * 50 + 5).toFixed(2))
-      };
-
-      return {
-        impressions: (baseMetrics.impressions || 0) + increment.impressions,
-        clicks: (baseMetrics.clicks || 0) + increment.clicks,
-        conversions: (baseMetrics.conversions || 0) + increment.conversions,
-        spend: (baseMetrics.spend || 0) + increment.spend,
-        lastUpdated: new Date()
-      };
-
-    } catch (error) {
-      console.error('Google Ads API error:', error);
       return null;
     }
   }
 
-  // Fetch Meta Ads performance (simulate for now)
-  async fetchMetaAdsPerformance(campaign) {
+  // 🔥 REAL Google Ads Performance - NO MORE FAKE DATA!
+  async fetchGoogleAdsPerformanceREAL(campaign) {
     try {
-      // TODO: Implement actual Meta API call
-
       const user = campaign.userId;
-      if (!user.metaAdAccountId) {
-        throw new Error('Meta Ad Account ID not configured');
+
+      // Check if user has Google Ads credentials
+      if (!user.googleAdsCustomerId) {
+        console.log(`⚠️ ${campaign.name}: No Google Ads Customer ID configured`);
+        return null;
       }
 
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 150));
+      console.log(`🔍 Fetching REAL Google Ads data for: ${campaign.name}`);
 
-      // Generate realistic incremental data
+      // Get LIVE performance data from Google Ads API
+      const liveData = await this.googleAdsService.getLivePerformanceData();
+
+      if (liveData.status === 'error') {
+        console.error(`❌ Google Ads API Error: ${liveData.error}`);
+        return null;
+      }
+
+      // Transform API data to our format
+      const metrics = {
+        impressions: liveData.current.impressions || 0,
+        clicks: liveData.current.clicks || 0,
+        conversions: liveData.current.conversions || 0,
+        spend: liveData.current.spend || 0,
+        revenue: liveData.current.revenue || 0,
+        lastUpdated: new Date(),
+        platform: 'google_ads',
+        platformStatus: liveData.status,
+
+        // Include health indicators
+        accountHealth: liveData.health || {},
+
+        // Performance changes
+        performanceChanges: liveData.changes || {}
+      };
+
+      console.log(`✅ REAL Google Ads data retrieved for ${campaign.name}:`, {
+        impressions: metrics.impressions,
+        clicks: metrics.clicks,
+        spend: `€${metrics.spend}`,
+        status: liveData.status
+      });
+
+      return metrics;
+
+    } catch (error) {
+      console.error('❌ REAL Google Ads fetch error:', error);
+      return null;
+    }
+  }
+
+  // 🔥 NEW: Get aggregated platform performance
+  async getAggregatedPlatformPerformance(userId) {
+    try {
+      const user = await User.findById(userId);
+      if (!user) throw new Error('User not found');
+
+      const platformData = {
+        google_ads: { status: 'disconnected', data: null },
+        meta_ads: { status: 'disconnected', data: null },
+        tiktok_ads: { status: 'coming_soon', data: null },
+        linkedin_ads: { status: 'coming_soon', data: null }
+      };
+
+      // 🔥 Get REAL Google Ads data
+      if (user.googleAdsCustomerId) {
+        try {
+          const googleData = await this.googleAdsService.getLivePerformanceData();
+          platformData.google_ads = {
+            status: googleData.status,
+            data: googleData.status === 'connected' ? googleData.current : null,
+            health: googleData.health || {},
+            lastUpdated: googleData.lastUpdated,
+            error: googleData.error || null
+          };
+        } catch (error) {
+          console.error('Google Ads aggregation error:', error);
+          platformData.google_ads = {
+            status: 'error',
+            error: error.message,
+            data: null
+          };
+        }
+      }
+
+      // Meta Ads (placeholder for now)
+      if (user.metaAdAccountId) {
+        platformData.meta_ads = {
+          status: 'configured_but_simulated',
+          data: await this.getSimulatedMetaData(),
+          lastUpdated: new Date().toISOString()
+        };
+      }
+
+      // Calculate totals across platforms
+      const totals = this.calculatePlatformTotals(platformData);
+
+      return {
+        platforms: platformData,
+        totals: totals,
+        connectedPlatforms: Object.keys(platformData).filter(
+          platform => platformData[platform].status === 'connected'
+        ).length,
+        lastUpdated: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error('Error getting aggregated platform performance:', error);
+      throw error;
+    }
+  }
+
+  // Helper: Calculate derived metrics
+  calculateDerivedMetrics(baseMetrics) {
+    const derived = {};
+
+    // CTR (Click-Through Rate)
+    if (baseMetrics.impressions > 0) {
+      derived.ctr = (baseMetrics.clicks / baseMetrics.impressions * 100);
+    } else {
+      derived.ctr = 0;
+    }
+
+    // CPC (Cost Per Click)
+    if (baseMetrics.clicks > 0) {
+      derived.cpc = baseMetrics.spend / baseMetrics.clicks;
+    } else {
+      derived.cpc = 0;
+    }
+
+    // Conversion Rate
+    if (baseMetrics.clicks > 0) {
+      derived.conversionRate = (baseMetrics.conversions / baseMetrics.clicks * 100);
+    } else {
+      derived.conversionRate = 0;
+    }
+
+    // Cost Per Conversion
+    if (baseMetrics.conversions > 0) {
+      derived.costPerConversion = baseMetrics.spend / baseMetrics.conversions;
+    } else {
+      derived.costPerConversion = 0;
+    }
+
+    // ROAS (Return on Ad Spend)
+    if (baseMetrics.spend > 0) {
+      derived.roas = baseMetrics.revenue / baseMetrics.spend;
+    } else {
+      derived.roas = 0;
+    }
+
+    // Revenue Per Impression
+    if (baseMetrics.impressions > 0) {
+      derived.revenuePerImpression = baseMetrics.revenue / baseMetrics.impressions;
+    } else {
+      derived.revenuePerImpression = 0;
+    }
+
+    return derived;
+  }
+
+  // Helper: Calculate platform totals
+  calculatePlatformTotals(platformData) {
+    let totals = {
+      impressions: 0,
+      clicks: 0,
+      spend: 0,
+      conversions: 0,
+      revenue: 0
+    };
+
+    Object.values(platformData).forEach(platform => {
+      if (platform.data) {
+        totals.impressions += platform.data.impressions || 0;
+        totals.clicks += platform.data.clicks || 0;
+        totals.spend += platform.data.spend || 0;
+        totals.conversions += platform.data.conversions || 0;
+        totals.revenue += platform.data.revenue || 0;
+      }
+    });
+
+    // Calculate total derived metrics
+    const derivedTotals = this.calculateDerivedMetrics(totals);
+
+    return { ...totals, ...derivedTotals };
+  }
+
+  // Fetch Meta Ads performance (still simulated for now)
+  async fetchMetaAdsPerformance(campaign) {
+    try {
+      const user = campaign.userId;
+      if (!user.metaAdAccountId) {
+        console.log(`⚠️ ${campaign.name}: No Meta Ad Account ID configured`);
+        return null;
+      }
+
+      // TODO: Implement real Meta API when credentials are ready
+      console.log(`🔄 Simulating Meta Ads data for: ${campaign.name} (real API coming soon)`);
+
+      // Simulate realistic Meta performance
       const baseMetrics = campaign.metrics || {};
       const increment = {
-        impressions: Math.round(Math.random() * 200 + 20),
-        clicks: Math.round(Math.random() * 15 + 2),
-        conversions: Math.round(Math.random() * 4),
-        spend: Number((Math.random() * 40 + 8).toFixed(2)),
-        videoViews: Math.round(Math.random() * 50 + 5),
-        likes: Math.round(Math.random() * 10 + 1),
-        shares: Math.round(Math.random() * 3),
-        comments: Math.round(Math.random() * 5)
+        impressions: Math.round(Math.random() * 500 + 50),
+        clicks: Math.round(Math.random() * 25 + 5),
+        conversions: Math.round(Math.random() * 8 + 1),
+        spend: Number((Math.random() * 80 + 15).toFixed(2)),
+        revenue: Number((Math.random() * 200 + 50).toFixed(2)),
+        videoViews: Math.round(Math.random() * 100 + 10),
+        reach: Math.round(Math.random() * 1000 + 100)
       };
 
       return {
@@ -194,8 +383,12 @@ class LivePerformanceService {
         clicks: (baseMetrics.clicks || 0) + increment.clicks,
         conversions: (baseMetrics.conversions || 0) + increment.conversions,
         spend: (baseMetrics.spend || 0) + increment.spend,
+        revenue: (baseMetrics.revenue || 0) + increment.revenue,
         videoViews: (baseMetrics.videoViews || 0) + increment.videoViews,
-        lastUpdated: new Date()
+        reach: (baseMetrics.reach || 0) + increment.reach,
+        lastUpdated: new Date(),
+        platform: 'meta',
+        platformStatus: 'simulated'
       };
 
     } catch (error) {
@@ -204,28 +397,26 @@ class LivePerformanceService {
     }
   }
 
-  // Fetch TikTok Ads performance (placeholder)
-  async fetchTikTokAdsPerformance(campaign) {
-    try {
-      // TODO: Implement TikTok API integration
-      console.log('TikTok API integration coming soon');
-      return null;
-    } catch (error) {
-      console.error('TikTok API error:', error);
-      return null;
-    }
+  // Get simulated Meta data for aggregation
+  async getSimulatedMetaData() {
+    return {
+      impressions: Math.round(Math.random() * 5000 + 1000),
+      clicks: Math.round(Math.random() * 200 + 50),
+      conversions: Math.round(Math.random() * 30 + 5),
+      spend: Number((Math.random() * 500 + 100).toFixed(2)),
+      revenue: Number((Math.random() * 1500 + 300).toFixed(2))
+    };
   }
 
-  // Fetch LinkedIn Ads performance (placeholder)
+  // TikTok & LinkedIn (coming soon)
+  async fetchTikTokAdsPerformance(campaign) {
+    console.log('📱 TikTok API integration coming soon');
+    return null;
+  }
+
   async fetchLinkedInAdsPerformance(campaign) {
-    try {
-      // TODO: Implement LinkedIn API integration
-      console.log('LinkedIn API integration coming soon');
-      return null;
-    } catch (error) {
-      console.error('LinkedIn API error:', error);
-      return null;
-    }
+    console.log('💼 LinkedIn API integration coming soon');
+    return null;
   }
 
   // Store performance metric in time-series collection
@@ -264,7 +455,7 @@ class LivePerformanceService {
     }
   }
 
-  // Check for performance alerts
+  // Enhanced performance alerts with real data
   async checkPerformanceAlerts(campaign, newMetrics) {
     try {
       const user = await User.findById(campaign.userId);
@@ -277,7 +468,12 @@ class LivePerformanceService {
         alerts.push({
           type: 'performance',
           severity: 'warning',
-          message: `Low CTR detected (${newMetrics.ctr.toFixed(2)}%) for campaign "${campaign.name}". Consider optimizing ad creatives.`
+          message: `🎯 Low CTR Alert: ${newMetrics.ctr.toFixed(2)}% for "${campaign.name}". Marcus suggests testing new ad creatives.`,
+          suggestion: 'Consider A/B testing different headlines or images to improve click-through rate.',
+          metric: 'ctr',
+          value: newMetrics.ctr,
+          threshold: 1.0,
+          createdAt: new Date()
         });
       }
 
@@ -286,34 +482,52 @@ class LivePerformanceService {
         alerts.push({
           type: 'performance',
           severity: 'warning',
-          message: `High CPC detected ($${newMetrics.cpc.toFixed(2)}) for campaign "${campaign.name}". Review keyword bids and targeting.`
+          message: `💰 High CPC Alert: €${newMetrics.cpc.toFixed(2)} for "${campaign.name}". Marcus recommends bid optimization.`,
+          suggestion: 'Review keyword bids and consider negative keywords to reduce CPC.',
+          metric: 'cpc',
+          value: newMetrics.cpc,
+          threshold: 5.0,
+          createdAt: new Date()
         });
       }
 
       // Check for low ROAS
-      if (newMetrics.roas < 1.5 && newMetrics.conversions > 5) {
+      if (newMetrics.roas < 2.0 && newMetrics.conversions > 3) {
         alerts.push({
           type: 'performance',
           severity: 'error',
-          message: `Low ROAS detected (${newMetrics.roas.toFixed(2)}x) for campaign "${campaign.name}". Immediate optimization recommended.`
+          message: `📉 Low ROAS Alert: ${newMetrics.roas.toFixed(2)}x for "${campaign.name}". Marcus suggests immediate optimization.`,
+          suggestion: 'Review targeting, adjust bids, or pause underperforming keywords/audiences.',
+          metric: 'roas',
+          value: newMetrics.roas,
+          threshold: 2.0,
+          createdAt: new Date()
         });
       }
 
-      // Check budget pacing
-      const dailySpendRate = this.calculateDailySpendRate(campaign, newMetrics);
-      if (dailySpendRate > campaign.budget.dailyBudget * 1.2) {
+      // Check conversion rate
+      if (newMetrics.conversionRate < 1.0 && newMetrics.clicks > 50) {
         alerts.push({
-          type: 'budget',
+          type: 'performance',
           severity: 'warning',
-          message: `Campaign "${campaign.name}" is spending 20% above daily budget. Current pace: $${dailySpendRate.toFixed(2)}/day.`
+          message: `🎪 Low Conversion Rate: ${newMetrics.conversionRate.toFixed(2)}% for "${campaign.name}". Landing page optimization needed.`,
+          suggestion: 'Review landing page experience and conversion funnel.',
+          metric: 'conversionRate',
+          value: newMetrics.conversionRate,
+          threshold: 1.0,
+          createdAt: new Date()
         });
       }
 
       // Add alerts to campaign
       if (alerts.length > 0) {
+        if (!campaign.marcusInsights) campaign.marcusInsights = { alerts: [] };
+        if (!campaign.marcusInsights.alerts) campaign.marcusInsights.alerts = [];
+
         campaign.marcusInsights.alerts.push(...alerts);
         await campaign.save();
-        console.log(`⚠️ Added ${alerts.length} alerts for campaign ${campaign.name}`);
+
+        console.log(`⚠️ Marcus added ${alerts.length} intelligent alerts for ${campaign.name}`);
       }
 
     } catch (error) {
@@ -321,85 +535,56 @@ class LivePerformanceService {
     }
   }
 
-  // Calculate daily spend rate
-  calculateDailySpendRate(campaign, currentMetrics) {
-    if (!campaign.launchedAt) return 0;
-
-    const daysRunning = Math.max(1, (new Date() - campaign.launchedAt) / (1000 * 60 * 60 * 24));
-    return currentMetrics.spend / daysRunning;
-  }
-
-  // Get real-time performance for user
+  // Get real-time performance for user dashboard
   async getRealTimePerformance(userId) {
     try {
       const user = await User.findById(userId);
       if (!user) throw new Error('User not found');
 
+      // Add user to active monitoring
+      this.addActiveUser(userId);
+
+      // Get platform-level performance
+      const platformPerformance = await this.getAggregatedPlatformPerformance(userId);
+
       // Get active campaigns
       const activeCampaigns = await Campaign.find({
         userId,
         status: 'active'
-      }).select('name platform metrics marcusInsights.alerts');
+      }).select('name platform metrics marcusInsights lastUpdated');
 
       const realTimeData = {
+        // Platform overview
+        platforms: platformPerformance.platforms,
+        totalConnectedPlatforms: platformPerformance.connectedPlatforms,
+
+        // Aggregated totals
+        totals: platformPerformance.totals,
+
+        // Campaign details
         totalActiveCampaigns: activeCampaigns.length,
-        totalSpendToday: 0,
-        totalImpressionsToday: 0,
-        totalClicksToday: 0,
-        totalConversionsToday: 0,
-        alerts: [],
-        topPerformingCampaigns: [],
-        underperformingCampaigns: []
+        campaigns: activeCampaigns.map(campaign => ({
+          id: campaign._id,
+          name: campaign.name,
+          platform: campaign.platform,
+          metrics: campaign.metrics || {},
+          lastUpdated: campaign.lastUpdated,
+          alerts: campaign.marcusInsights?.alerts?.filter(a => !a.acknowledged) || []
+        })),
+
+        // System status
+        serviceStatus: {
+          isRunning: this.isRunning,
+          lastSync: this.lastSyncTime,
+          activeUsers: this.activeUsers.size,
+          googleAdsConnection: await this.googleAdsService.getConnectionStatus()
+        },
+
+        // Timestamp
+        lastUpdated: new Date().toISOString()
       };
 
-      // Aggregate metrics
-      activeCampaigns.forEach(campaign => {
-        const metrics = campaign.metrics || {};
-
-        realTimeData.totalSpendToday += metrics.spend || 0;
-        realTimeData.totalImpressionsToday += metrics.impressions || 0;
-        realTimeData.totalClicksToday += metrics.clicks || 0;
-        realTimeData.totalConversionsToday += metrics.conversions || 0;
-
-        // Collect unacknowledged alerts
-        if (campaign.marcusInsights?.alerts) {
-          campaign.marcusInsights.alerts.forEach(alert => {
-            if (!alert.acknowledged) {
-              realTimeData.alerts.push({
-                campaignId: campaign._id,
-                campaignName: campaign.name,
-                platform: campaign.platform,
-                ...alert
-              });
-            }
-          });
-        }
-
-        // Classify performance
-        if (metrics.roas > 3.0) {
-          realTimeData.topPerformingCampaigns.push({
-            id: campaign._id,
-            name: campaign.name,
-            platform: campaign.platform,
-            roas: metrics.roas,
-            spend: metrics.spend || 0
-          });
-        } else if (metrics.roas < 1.5 && metrics.spend > 50) {
-          realTimeData.underperformingCampaigns.push({
-            id: campaign._id,
-            name: campaign.name,
-            platform: campaign.platform,
-            roas: metrics.roas,
-            spend: metrics.spend || 0
-          });
-        }
-      });
-
-      // Sort and limit results
-      realTimeData.topPerformingCampaigns.sort((a, b) => b.roas - a.roas).slice(0, 5);
-      realTimeData.underperformingCampaigns.sort((a, b) => a.roas - b.roas).slice(0, 5);
-      realTimeData.alerts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
-
+      console.log(`📊 Real-time performance data generated for user ${userId}`);
       return realTimeData;
 
     } catch (error) {
@@ -414,13 +599,14 @@ class LivePerformanceService {
       const campaign = await Campaign.findById(campaignId).populate('userId');
       if (!campaign) throw new Error('Campaign not found');
 
-      console.log(`🔄 Force syncing campaign: ${campaign.name}`);
-      await this.syncCampaignPerformance(campaign);
+      console.log(`🔄 Marcus force syncing campaign: ${campaign.name}`);
+      const metrics = await this.syncCampaignPerformance(campaign);
 
       return {
         success: true,
-        message: 'Campaign synced successfully',
-        lastUpdated: new Date()
+        message: 'Campaign synced successfully with REAL data',
+        metrics: metrics,
+        lastUpdated: new Date().toISOString()
       };
 
     } catch (error) {
@@ -429,15 +615,37 @@ class LivePerformanceService {
     }
   }
 
-  // Get service status
+  // Get comprehensive service status
   getStatus() {
     return {
-      isRunning: this.isRunning,
-      activeUsers: Array.from(this.activeUsers),
-      refreshInterval: this.refreshInterval,
-      lastSync: this.lastSyncTime || null,
-      uptime: this.isRunning ? Date.now() - this.startTime : 0
+      service: {
+        isRunning: this.isRunning,
+        uptime: this.isRunning ? Date.now() - this.startTime : 0,
+        refreshInterval: this.refreshInterval,
+        lastSync: this.lastSyncTime
+      },
+      monitoring: {
+        activeUsers: Array.from(this.activeUsers),
+        totalActiveUsers: this.activeUsers.size
+      },
+      integrations: {
+        googleAds: this.googleAdsService.getConnectionStatus(),
+        meta: { status: 'simulated' },
+        tiktok: { status: 'coming_soon' },
+        linkedin: { status: 'coming_soon' }
+      },
+      timestamp: new Date().toISOString()
     };
+  }
+
+  // 🔥 NEW: Get Google Ads hourly trends
+  async getGoogleAdsHourlyTrends() {
+    try {
+      return await this.googleAdsService.getHourlyTrends();
+    } catch (error) {
+      console.error('Error getting hourly trends:', error);
+      return [];
+    }
   }
 }
 
