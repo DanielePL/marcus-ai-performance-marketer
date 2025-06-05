@@ -1,144 +1,75 @@
-// server/src/services/googleAdsService.js
-// Google Ads API Integration für Marcus AI Market Intelligence
-const { GoogleAdsApi } = require('google-ads-api');
+// server/src/services/integrations/googleAdsService.js
+// MARCUS AI - Google Ads API Integration Service
+// Live Performance Data & Campaign Management
+
+const { GoogleAdsApi, enums } = require('google-ads-api');
 
 class GoogleAdsService {
   constructor() {
-    this.client = new GoogleAdsApi({
-      client_id: process.env.GOOGLE_ADS_CLIENT_ID,
-      client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET,
-      developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
-    });
-
+    this.client = null;
     this.customerId = process.env.GOOGLE_ADS_CUSTOMER_ID;
-    this.refreshToken = process.env.GOOGLE_ADS_REFRESH_TOKEN;
+    this.isConnected = false;
+    this.lastError = null;
 
-    console.log('🔍 Google Ads Service initialized');
+    this.initializeClient();
+    console.log('🚀 Marcus Google Ads Service initializing...');
+  }
+
+  // Initialize Google Ads Client
+  initializeClient() {
+    try {
+      if (!process.env.GOOGLE_ADS_CLIENT_ID ||
+          !process.env.GOOGLE_ADS_CLIENT_SECRET ||
+          !process.env.GOOGLE_ADS_DEVELOPER_TOKEN) {
+        throw new Error('Missing Google Ads API credentials in environment variables');
+      }
+
+      this.client = new GoogleAdsApi({
+        client_id: process.env.GOOGLE_ADS_CLIENT_ID,
+        client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET,
+        developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+      });
+
+      console.log('✅ Google Ads API Client initialized');
+    } catch (error) {
+      console.error('❌ Google Ads Client initialization failed:', error.message);
+      this.lastError = error.message;
+    }
   }
 
   // Get authenticated customer instance
   async getCustomer() {
     try {
+      if (!this.client) {
+        throw new Error('Google Ads client not initialized');
+      }
+
+      if (!this.customerId || !process.env.GOOGLE_ADS_REFRESH_TOKEN) {
+        throw new Error('Missing Customer ID or Refresh Token');
+      }
+
       const customer = this.client.Customer({
         customer_id: this.customerId,
-        refresh_token: this.refreshToken,
+        refresh_token: process.env.GOOGLE_ADS_REFRESH_TOKEN,
       });
 
       return customer;
     } catch (error) {
       console.error('❌ Google Ads Customer Error:', error);
-      throw new Error(`Google Ads authentication failed: ${error.message}`);
+      this.isConnected = false;
+      this.lastError = error.message;
+      throw error;
     }
   }
 
-  // MARCUS INTELLIGENCE: Market Research für Keywords
-  async getKeywordIdeas(seedKeywords, targetLocation = '2276') { // 2276 = Germany
+  // 🔥 MARCUS LIVE PERFORMANCE: Real-time account metrics
+  async getLivePerformanceData() {
     try {
       const customer = await this.getCustomer();
 
-      console.log('🔍 Researching keywords:', seedKeywords);
+      console.log('📊 Marcus fetching live Google Ads performance...');
 
-      const keywordIdeasRequest = {
-        customer_id: this.customerId,
-        language: 'de', // German
-        geo_target_constants: [targetLocation],
-        keyword_seeds: seedKeywords,
-        keyword_plan_network: 'GOOGLE_SEARCH',
-        include_adult_keywords: false
-      };
-
-      const keywordIdeas = await customer.keywordPlanIdeaService.generateKeywordIdeas(keywordIdeasRequest);
-
-      const processedKeywords = keywordIdeas.results.map(idea => ({
-        keyword: idea.text,
-        avgMonthlySearches: idea.keyword_idea_metrics?.avg_monthly_searches || 0,
-        competition: idea.keyword_idea_metrics?.competition || 'UNKNOWN',
-        lowTopOfPageBid: idea.keyword_idea_metrics?.low_top_of_page_bid_micros ?
-          (idea.keyword_idea_metrics.low_top_of_page_bid_micros / 1000000).toFixed(2) : '0.00',
-        highTopOfPageBid: idea.keyword_idea_metrics?.high_top_of_page_bid_micros ?
-          (idea.keyword_idea_metrics.high_top_of_page_bid_micros / 1000000).toFixed(2) : '0.00',
-        competitionIndex: idea.keyword_idea_metrics?.competition_index || 0
-      }));
-
-      console.log(`✅ Found ${processedKeywords.length} keyword ideas`);
-      return processedKeywords;
-
-    } catch (error) {
-      console.error('❌ Keyword Research Error:', error);
-      throw new Error(`Keyword research failed: ${error.message}`);
-    }
-  }
-
-  // MARCUS INTELLIGENCE: Competitor Analysis
-  async getCompetitorInsights(domain, keywords) {
-    try {
-      const customer = await this.getCustomer();
-
-      console.log('🕵️ Analyzing competitor:', domain);
-
-      // Search for ads containing competitor domain or brand terms
-      const query = `
-        SELECT 
-          ad_group_ad.ad.expanded_text_ad.headline_part1,
-          ad_group_ad.ad.expanded_text_ad.headline_part2,
-          ad_group_ad.ad.expanded_text_ad.description,
-          ad_group_ad.ad.final_urls,
-          ad_group.name,
-          campaign.name,
-          metrics.impressions,
-          metrics.clicks,
-          metrics.ctr,
-          metrics.average_cpc
-        FROM ad_group_ad 
-        WHERE 
-          ad_group_ad.status = 'ENABLED' 
-          AND campaign.status = 'ENABLED'
-          AND ad_group.status = 'ENABLED'
-          AND segments.date DURING LAST_30_DAYS
-        LIMIT 100
-      `;
-
-      const results = await customer.query(query);
-
-      const competitorData = {
-        domain: domain,
-        adCount: results.length,
-        ads: results.slice(0, 10).map(row => ({
-          headline1: row.ad_group_ad?.ad?.expanded_text_ad?.headline_part1 || '',
-          headline2: row.ad_group_ad?.ad?.expanded_text_ad?.headline_part2 || '',
-          description: row.ad_group_ad?.ad?.expanded_text_ad?.description || '',
-          finalUrls: row.ad_group_ad?.ad?.final_urls || [],
-          campaign: row.campaign?.name || '',
-          adGroup: row.ad_group?.name || '',
-          impressions: row.metrics?.impressions || 0,
-          clicks: row.metrics?.clicks || 0,
-          ctr: row.metrics?.ctr || 0,
-          avgCpc: row.metrics?.average_cpc ? (row.metrics.average_cpc / 1000000).toFixed(2) : '0.00'
-        }))
-      };
-
-      console.log(`✅ Found ${competitorData.adCount} competitor ads`);
-      return competitorData;
-
-    } catch (error) {
-      console.error('❌ Competitor Analysis Error:', error);
-      // Return empty data instead of throwing to keep Marcus running
-      return {
-        domain: domain,
-        adCount: 0,
-        ads: [],
-        error: error.message
-      };
-    }
-  }
-
-  // MARCUS INTELLIGENCE: Account Performance Overview
-  async getAccountPerformance(days = 30) {
-    try {
-      const customer = await this.getCustomer();
-
-      console.log(`📊 Fetching account performance for last ${days} days`);
-
+      // Get today's performance data
       const query = `
         SELECT 
           metrics.impressions,
@@ -147,214 +78,345 @@ class GoogleAdsService {
           metrics.average_cpc,
           metrics.cost_micros,
           metrics.conversions,
-          metrics.cost_per_conversion,
+          metrics.conversions_value,
           metrics.conversion_rate,
           segments.date
         FROM customer 
-        WHERE segments.date DURING LAST_${days}_DAYS
+        WHERE segments.date = TODAY
+      `;
+
+      const todayResults = await customer.query(query);
+
+      // Get yesterday's data for comparison
+      const yesterdayQuery = `
+        SELECT 
+          metrics.impressions,
+          metrics.clicks,
+          metrics.ctr,
+          metrics.average_cpc,
+          metrics.cost_micros,
+          metrics.conversions,
+          metrics.conversions_value,
+          metrics.conversion_rate
+        FROM customer 
+        WHERE segments.date = YESTERDAY
+      `;
+
+      const yesterdayResults = await customer.query(yesterdayQuery);
+
+      // Process today's data
+      const todayMetrics = this.aggregateMetrics(todayResults);
+      const yesterdayMetrics = this.aggregateMetrics(yesterdayResults);
+
+      // Calculate performance changes
+      const performanceData = {
+        platform: 'google_ads',
+        status: 'connected',
+        lastUpdated: new Date().toISOString(),
+
+        // Today's metrics
+        current: {
+          impressions: todayMetrics.impressions,
+          clicks: todayMetrics.clicks,
+          ctr: todayMetrics.ctr,
+          cpc: todayMetrics.avgCpc,
+          spend: todayMetrics.spend,
+          conversions: todayMetrics.conversions,
+          revenue: todayMetrics.revenue,
+          roas: todayMetrics.roas,
+          conversionRate: todayMetrics.conversionRate
+        },
+
+        // Performance changes vs yesterday
+        changes: {
+          impressions: this.calculateChange(todayMetrics.impressions, yesterdayMetrics.impressions),
+          clicks: this.calculateChange(todayMetrics.clicks, yesterdayMetrics.clicks),
+          ctr: this.calculateChange(todayMetrics.ctr, yesterdayMetrics.ctr),
+          cpc: this.calculateChange(todayMetrics.avgCpc, yesterdayMetrics.avgCpc),
+          spend: this.calculateChange(todayMetrics.spend, yesterdayMetrics.spend),
+          conversions: this.calculateChange(todayMetrics.conversions, yesterdayMetrics.conversions),
+          revenue: this.calculateChange(todayMetrics.revenue, yesterdayMetrics.revenue)
+        },
+
+        // Account health indicators
+        health: {
+          accountStatus: 'active',
+          budgetUtilization: this.calculateBudgetUtilization(todayMetrics.spend),
+          qualityScore: await this.getAverageQualityScore(),
+          activecampaigns: await this.getActiveCampaignCount()
+        }
+      };
+
+      this.isConnected = true;
+      this.lastError = null;
+
+      console.log('✅ Live Google Ads performance data retrieved');
+      return performanceData;
+
+    } catch (error) {
+      console.error('❌ Live Performance Error:', error);
+      this.isConnected = false;
+      this.lastError = error.message;
+
+      return {
+        platform: 'google_ads',
+        status: 'error',
+        error: error.message,
+        lastUpdated: new Date().toISOString(),
+        current: this.getEmptyMetrics(),
+        changes: this.getEmptyChanges(),
+        health: { accountStatus: 'disconnected' }
+      };
+    }
+  }
+
+  // 🔥 MARCUS REAL-TIME: Get hourly performance trends
+  async getHourlyTrends() {
+    try {
+      const customer = await this.getCustomer();
+
+      const query = `
+        SELECT 
+          metrics.impressions,
+          metrics.clicks,
+          metrics.cost_micros,
+          metrics.conversions,
+          segments.hour
+        FROM customer 
+        WHERE segments.date = TODAY
+        ORDER BY segments.hour ASC
       `;
 
       const results = await customer.query(query);
 
-      // Aggregate the data
-      let totalImpressions = 0;
-      let totalClicks = 0;
-      let totalCost = 0;
-      let totalConversions = 0;
+      const hourlyData = [];
+      for (let hour = 0; hour < 24; hour++) {
+        const hourData = results.find(r => r.segments?.hour === hour) || {};
 
-      results.forEach(row => {
-        totalImpressions += row.metrics?.impressions || 0;
-        totalClicks += row.metrics?.clicks || 0;
-        totalCost += row.metrics?.cost_micros || 0;
-        totalConversions += row.metrics?.conversions || 0;
-      });
+        hourlyData.push({
+          hour: hour,
+          impressions: hourData.metrics?.impressions || 0,
+          clicks: hourData.metrics?.clicks || 0,
+          spend: hourData.metrics?.cost_micros ? (hourData.metrics.cost_micros / 1000000) : 0,
+          conversions: hourData.metrics?.conversions || 0,
+          timestamp: new Date().setHours(hour, 0, 0, 0)
+        });
+      }
 
-      const performance = {
-        period: `${days} days`,
-        impressions: totalImpressions,
-        clicks: totalClicks,
-        ctr: totalClicks > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00',
-        avgCpc: totalClicks > 0 ? ((totalCost / 1000000) / totalClicks).toFixed(2) : '0.00',
-        totalSpend: (totalCost / 1000000).toFixed(2),
-        conversions: totalConversions,
-        conversionRate: totalClicks > 0 ? ((totalConversions / totalClicks) * 100).toFixed(2) : '0.00',
-        costPerConversion: totalConversions > 0 ? ((totalCost / 1000000) / totalConversions).toFixed(2) : '0.00'
-      };
-
-      console.log('✅ Account performance retrieved:', performance);
-      return performance;
+      console.log('📈 Hourly trends data retrieved');
+      return hourlyData;
 
     } catch (error) {
-      console.error('❌ Account Performance Error:', error);
-      return {
-        period: `${days} days`,
-        impressions: 0,
-        clicks: 0,
-        ctr: '0.00',
-        avgCpc: '0.00',
-        totalSpend: '0.00',
-        conversions: 0,
-        conversionRate: '0.00',
-        costPerConversion: '0.00',
-        error: error.message
-      };
+      console.error('❌ Hourly Trends Error:', error);
+      return [];
     }
   }
 
-  // MARCUS INTELLIGENCE: Industry Benchmarks
-  async getIndustryBenchmarks(industry = 'general') {
+  // 🔥 MARCUS CONNECTION TEST: Live API connection verification
+  async testConnectionLive() {
     try {
-      // This would typically require industry-specific data
-      // For now, we'll provide general benchmarks based on Google Ads data
+      console.log('🔍 Marcus testing Google Ads connection...');
 
-      const benchmarks = {
-        'ecommerce': {
-          avgCtr: '2.1%',
-          avgCpc: '€1.15',
-          avgConversionRate: '2.8%',
-          industryType: 'E-Commerce'
-        },
-        'saas': {
-          avgCtr: '3.2%',
-          avgCpc: '€2.45',
-          avgConversionRate: '4.1%',
-          industryType: 'Software as a Service'
-        },
-        'finance': {
-          avgCtr: '2.8%',
-          avgCpc: '€3.20',
-          avgConversionRate: '3.5%',
-          industryType: 'Financial Services'
-        },
-        'health': {
-          avgCtr: '2.5%',
-          avgCpc: '€2.80',
-          avgConversionRate: '3.2%',
-          industryType: 'Health & Medical'
-        },
-        'general': {
-          avgCtr: '2.4%',
-          avgCpc: '€1.85',
-          avgConversionRate: '3.1%',
-          industryType: 'All Industries Average'
-        }
-      };
-
-      const industryBenchmark = benchmarks[industry.toLowerCase()] || benchmarks['general'];
-
-      console.log(`✅ Industry benchmarks for ${industryBenchmark.industryType}`);
-      return industryBenchmark;
-
-    } catch (error) {
-      console.error('❌ Industry Benchmarks Error:', error);
-      return benchmarks['general'];
-    }
-  }
-
-  // MARCUS INTELLIGENCE: Campaign Suggestions basierend auf Account Data
-  async getCampaignSuggestions(businessInfo) {
-    try {
       const customer = await this.getCustomer();
 
-      // Get current account performance
-      const performance = await this.getAccountPerformance(30);
+      // Test with simple customer query
+      const query = `
+        SELECT 
+          customer.id,
+          customer.descriptive_name,
+          customer.currency_code,
+          customer.time_zone
+        FROM customer 
+        LIMIT 1
+      `;
 
-      // Get keyword ideas for business
-      const keywords = await this.getKeywordIdeas([
-        businessInfo.product || 'online marketing',
-        businessInfo.service || 'digital service',
-        businessInfo.category || 'business'
-      ]);
+      const result = await customer.query(query);
 
-      // Get industry benchmarks
-      const benchmarks = await this.getIndustryBenchmarks(businessInfo.industry || 'general');
+      if (result && result.length > 0) {
+        const customerInfo = result[0].customer;
 
-      const suggestions = {
-        accountPerformance: performance,
-        recommendedKeywords: keywords.slice(0, 10), // Top 10 keywords
-        industryBenchmarks: benchmarks,
-        campaignRecommendations: this.generateCampaignRecommendations(performance, keywords, benchmarks),
-        budgetSuggestions: this.generateBudgetSuggestions(keywords, benchmarks),
-        timestamp: new Date().toISOString()
-      };
+        this.isConnected = true;
+        this.lastError = null;
 
-      console.log('✅ Campaign suggestions generated');
-      return suggestions;
+        console.log('✅ Google Ads API connection successful');
+
+        return {
+          status: 'connected',
+          platform: 'google_ads',
+          customerId: this.customerId,
+          accountName: customerInfo.descriptive_name || 'Unknown Account',
+          currency: customerInfo.currency_code || 'EUR',
+          timezone: customerInfo.time_zone || 'Europe/Zurich',
+          message: 'Marcus Google Ads intelligence is online',
+          timestamp: new Date().toISOString()
+        };
+      } else {
+        throw new Error('No customer data returned');
+      }
 
     } catch (error) {
-      console.error('❌ Campaign Suggestions Error:', error);
-      throw new Error(`Campaign suggestions failed: ${error.message}`);
+      console.error('❌ Google Ads connection test failed:', error);
+
+      this.isConnected = false;
+      this.lastError = error.message;
+
+      return {
+        status: 'error',
+        platform: 'google_ads',
+        error: error.message,
+        details: this.getDiagnosticInfo(),
+        message: 'Marcus Google Ads connection offline',
+        timestamp: new Date().toISOString()
+      };
     }
   }
 
-  // Helper: Generate Campaign Recommendations
-  generateCampaignRecommendations(performance, keywords, benchmarks) {
-    const recommendations = [];
+  // Helper: Aggregate metrics from query results
+  aggregateMetrics(results) {
+    let totalImpressions = 0;
+    let totalClicks = 0;
+    let totalCost = 0;
+    let totalConversions = 0;
+    let totalConversionsValue = 0;
 
-    // Search Campaign Recommendation
-    const highVolumeKeywords = keywords.filter(k => k.avgMonthlySearches > 1000);
-    if (highVolumeKeywords.length > 0) {
-      recommendations.push({
-        type: 'Search Campaign',
-        rationale: `${highVolumeKeywords.length} high-volume keywords found with good search intent`,
-        suggestedKeywords: highVolumeKeywords.slice(0, 5).map(k => k.keyword),
-        estimatedCpc: `€${(highVolumeKeywords.reduce((sum, k) => sum + parseFloat(k.lowTopOfPageBid), 0) / highVolumeKeywords.length).toFixed(2)}`,
-        priority: 'High'
-      });
-    }
+    results.forEach(row => {
+      totalImpressions += row.metrics?.impressions || 0;
+      totalClicks += row.metrics?.clicks || 0;
+      totalCost += row.metrics?.cost_micros || 0;
+      totalConversions += row.metrics?.conversions || 0;
+      totalConversionsValue += row.metrics?.conversions_value || 0;
+    });
 
-    // Display Campaign Recommendation
-    if (parseFloat(performance.ctr) < parseFloat(benchmarks.avgCtr)) {
-      recommendations.push({
-        type: 'Display Campaign',
-        rationale: 'Current CTR below industry average - Display can help with brand awareness',
-        suggestedAudiences: ['In-market audiences', 'Similar audiences', 'Custom intent'],
-        estimatedCpc: '€0.85',
-        priority: 'Medium'
-      });
-    }
-
-    return recommendations;
-  }
-
-  // Helper: Generate Budget Suggestions
-  generateBudgetSuggestions(keywords, benchmarks) {
-    const avgCpc = keywords.length > 0 ?
-      keywords.reduce((sum, k) => sum + parseFloat(k.lowTopOfPageBid), 0) / keywords.length :
-      parseFloat(benchmarks.avgCpc.replace('€', ''));
+    const spend = totalCost / 1000000; // Convert micros to euros
+    const revenue = totalConversionsValue;
+    const roas = spend > 0 ? (revenue / spend) : 0;
 
     return {
-      conservativeDaily: Math.round(avgCpc * 20), // 20 clicks per day
-      moderateDaily: Math.round(avgCpc * 50), // 50 clicks per day
-      aggressiveDaily: Math.round(avgCpc * 100), // 100 clicks per day
-      recommendedStarting: Math.round(avgCpc * 30), // 30 clicks per day
-      avgCpcEstimate: `€${avgCpc.toFixed(2)}`
+      impressions: totalImpressions,
+      clicks: totalClicks,
+      ctr: totalImpressions > 0 ? (totalClicks / totalImpressions * 100) : 0,
+      avgCpc: totalClicks > 0 ? (spend / totalClicks) : 0,
+      spend: spend,
+      conversions: totalConversions,
+      revenue: revenue,
+      roas: roas,
+      conversionRate: totalClicks > 0 ? (totalConversions / totalClicks * 100) : 0
     };
   }
 
-  // Test connection to Google Ads API
-  async testConnection() {
+  // Helper: Calculate percentage change
+  calculateChange(current, previous) {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous * 100);
+  }
+
+  // Helper: Get average quality score
+  async getAverageQualityScore() {
     try {
       const customer = await this.getCustomer();
 
-      // Simple query to test connection
-      const query = 'SELECT customer.id FROM customer LIMIT 1';
-      const result = await customer.query(query);
+      const query = `
+        SELECT 
+          keyword_view.resource_name,
+          ad_group_criterion.quality_info.quality_score
+        FROM keyword_view 
+        WHERE ad_group_criterion.quality_info.quality_score > 0
+        AND segments.date DURING LAST_7_DAYS
+        LIMIT 100
+      `;
 
-      console.log('✅ Google Ads API connection successful');
-      return {
-        status: 'connected',
-        customerId: this.customerId,
-        message: 'Google Ads API ready for Marcus intelligence'
-      };
+      const results = await customer.query(query);
+
+      if (results.length === 0) return 7; // Default average
+
+      const totalScore = results.reduce((sum, row) => {
+        return sum + (row.ad_group_criterion?.quality_info?.quality_score || 0);
+      }, 0);
+
+      return Math.round(totalScore / results.length);
 
     } catch (error) {
-      console.error('❌ Google Ads API connection failed:', error);
-      return {
-        status: 'error',
-        message: error.message
-      };
+      console.error('Quality Score Error:', error);
+      return 7; // Return default
     }
+  }
+
+  // Helper: Get active campaign count
+  async getActiveCampaignCount() {
+    try {
+      const customer = await this.getCustomer();
+
+      const query = `
+        SELECT campaign.id
+        FROM campaign 
+        WHERE campaign.status = 'ENABLED'
+      `;
+
+      const results = await customer.query(query);
+      return results.length;
+
+    } catch (error) {
+      console.error('Campaign Count Error:', error);
+      return 0;
+    }
+  }
+
+  // Helper: Calculate budget utilization
+  calculateBudgetUtilization(todaySpend) {
+    // This would need actual budget data - for now estimate
+    const estimatedDailyBudget = 100; // Default budget
+    return todaySpend > 0 ? Math.min(100, (todaySpend / estimatedDailyBudget * 100)) : 0;
+  }
+
+  // Helper: Get diagnostic information
+  getDiagnosticInfo() {
+    return {
+      clientInitialized: !!this.client,
+      customerId: !!this.customerId,
+      refreshToken: !!process.env.GOOGLE_ADS_REFRESH_TOKEN,
+      developerToken: !!process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
+      clientId: !!process.env.GOOGLE_ADS_CLIENT_ID,
+      clientSecret: !!process.env.GOOGLE_ADS_CLIENT_SECRET
+    };
+  }
+
+  // Helper: Empty metrics structure
+  getEmptyMetrics() {
+    return {
+      impressions: 0,
+      clicks: 0,
+      ctr: 0,
+      cpc: 0,
+      spend: 0,
+      conversions: 0,
+      revenue: 0,
+      roas: 0,
+      conversionRate: 0
+    };
+  }
+
+  // Helper: Empty changes structure
+  getEmptyChanges() {
+    return {
+      impressions: 0,
+      clicks: 0,
+      ctr: 0,
+      cpc: 0,
+      spend: 0,
+      conversions: 0,
+      revenue: 0
+    };
+  }
+
+  // 🔥 MARCUS INTELLIGENCE: Get connection status
+  getConnectionStatus() {
+    return {
+      platform: 'google_ads',
+      connected: this.isConnected,
+      lastError: this.lastError,
+      customerId: this.customerId,
+      timestamp: new Date().toISOString()
+    };
   }
 }
 

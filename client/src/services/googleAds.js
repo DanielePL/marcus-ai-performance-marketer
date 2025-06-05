@@ -1,11 +1,12 @@
 // client/src/services/googleAds.js
 // Frontend Service für Google Ads API Integration mit Marcus AI
-// 🔥 OPTIMIZED for new comprehensive Google Ads Routes
+// 🔥 VOLLSTÄNDIG REPARIERT - Korrekte URL Construction & API Routes
 
 class GoogleAdsClientService {
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-    this.apiEndpoint = `${this.baseURL}/google-ads`;
+    // 🔥 KORREKTE URL CONSTRUCTION:
+    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    this.apiEndpoint = `${this.baseURL}/api/google-ads`;  // Korrekt: /api/google-ads
   }
 
   // Test Google Ads API Connection - Enhanced
@@ -238,110 +239,79 @@ class GoogleAdsClientService {
     }
   }
 
-  // Generate formatted data for Marcus AI prompts - Enhanced
-  formatForMarcusAI(intelligenceData) {
-    const formatted = {
-      marketData: this.formatMarketData(intelligenceData),
-      competitorData: this.formatCompetitorData(intelligenceData),
-      performanceData: this.formatPerformanceData(intelligenceData),
-      recommendations: this.formatRecommendations(intelligenceData)
-    };
+  // Quick Market Check for Marcus Chat - Enhanced
+  async quickMarketCheck(keyword) {
+    try {
+      if (!keyword || typeof keyword !== 'string') {
+        return null;
+      }
 
-    return formatted;
+      const response = await this.getMarketIntelligence([keyword.trim()]);
+
+      if (response.success && response.data.keywords) {
+        const keywordData = response.data.keywords.keywords?.[0] || response.data.keywords.topRecommendations?.[0];
+
+        if (keywordData) {
+          const volume = keywordData.avgMonthlySearches || keywordData.volume || 0;
+          const cpc = keywordData.lowTopOfPageBid || keywordData.cpc || '0.00';
+          const competition = keywordData.competition || 'Unknown';
+
+          return {
+            keyword: keywordData.keyword,
+            volume: volume,
+            cpc: cpc,
+            competition: competition,
+            summary: `"${keywordData.keyword}" has ${volume.toLocaleString()} monthly searches with €${cpc} CPC (${competition} competition)`
+          };
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ Quick market check failed:', error);
+      return null;
+    }
   }
 
-  // 🔥 ENHANCED: Format Market Data for AI
-  formatMarketData(data) {
-    if (!data || !data.keywords) return null;
+  // Generate Market Insights - Enhanced
+  generateMarketInsights(keywordData, industryData) {
+    const insights = [];
 
-    const keywords = data.keywords;
-    const topKeywords = keywords.topRecommendations || keywords.keywords?.slice(0, 5) || [];
+    // Keyword insights
+    if (keywordData) {
+      if (keywordData.highVolumeKeywords?.length > 5) {
+        insights.push('Strong market demand with multiple high-volume keywords');
+      }
 
-    return {
-      summary: `Analyzed ${keywords.totalKeywordsFound || 0} keywords with ${keywords.highVolumeKeywords?.length || 0} high-volume opportunities`,
-      topKeywords: topKeywords.map(k =>
-        `"${k.keyword}" (${k.volume || k.avgMonthlySearches || 0} searches/month, €${k.cpc || k.lowTopOfPageBid || '0.00'} CPC)`
-      ),
-      marketSize: `Total market opportunity: ${(keywords.marketOpportunity || 0).toLocaleString()} monthly searches`,
-      cpcRange: keywords.avgCpcRange ?
-        `CPC Range: €${keywords.avgCpcRange.min} - €${keywords.avgCpcRange.max} (Avg: €${keywords.avgCpcRange.avg})` :
-        'CPC data not available',
-      opportunities: keywords.lowCompetitionKeywords?.length > 0 ?
-        `${keywords.lowCompetitionKeywords.length} low-competition keywords identified` :
-        'High competition market - focus on long-tail keywords',
-      competitionLevel: keywords.competitionAnalysis ?
-        `Competition: ${keywords.competitionAnalysis.highCompetition || 0} high, ${keywords.competitionAnalysis.mediumCompetition || 0} medium, ${keywords.competitionAnalysis.lowCompetition || 0} low` :
-        'Competition analysis not available'
-    };
-  }
+      if (keywordData.lowCompetitionKeywords?.length > 3) {
+        insights.push('Opportunity for quick wins with low-competition keywords');
+      }
 
-  // 🔥 ENHANCED: Format Competitor Data for AI
-  formatCompetitorData(data) {
-    if (!data || !data.competitor) return null;
+      if (keywordData.avgCpcRange && parseFloat(keywordData.avgCpcRange.avg) > 3.0) {
+        insights.push('High-value market with premium CPC - focus on quality over quantity');
+      }
 
-    const insights = data.insights || {};
-    const strategy = data.competitorStrategy || {};
-
-    return {
-      summary: `Competitor "${data.competitor}" has ${data.adActivity || 0} active ads`,
-      strategy: Object.keys(strategy).length > 0 ? {
-        avgCpc: `Average CPC: €${strategy.avgCpc || '0.00'}`,
-        avgCtr: `Average CTR: ${strategy.avgCtr || '0.00'}%`,
-        topHeadlines: strategy.topHeadlines || [],
-        campaigns: strategy.campaignThemes || []
-      } : null,
-      insights: Object.keys(insights).length > 0 ?
-        `Activity Level: ${insights.activityLevel || 'Unknown'}, Budget: ${insights.estimatedBudget || 'Unknown'}, Focus: ${insights.primaryFocus || 'Unknown'}` : null,
-      opportunities: data.opportunities || []
-    };
-  }
-
-  // 🔥 ENHANCED: Format Performance Data for AI
-  formatPerformanceData(data) {
-    if (!data || !data.performance) return null;
-
-    const perf = data.performance;
-    const insights = data.insights || {};
-    const trends = data.trends || {};
-
-    return {
-      summary: `Last ${perf.period || '30 days'}: ${perf.clicks || 0} clicks, ${perf.conversions || 0} conversions`,
-      metrics: {
-        ctr: `CTR: ${perf.ctr || '0.00'}%`,
-        cpc: `CPC: €${perf.avgCpc || '0.00'}`,
-        spend: `Total Spend: €${perf.totalSpend || '0.00'}`,
-        conversionRate: `Conversion Rate: ${perf.conversionRate || '0.00'}%`,
-        costPerConversion: `Cost per Conversion: €${perf.costPerConversion || '0.00'}`
-      },
-      performance: insights.performanceLevel || 'Unknown',
-      trends: Object.keys(trends).length > 0 ?
-        `Daily: €${trends.dailySpend || '0.00'} spend, ${trends.dailyClicks || 0} clicks, ${trends.dailyConversions || '0.0'} conversions` : null,
-      recommendations: data.recommendations || []
-    };
-  }
-
-  // 🔥 ENHANCED: Format Recommendations for AI
-  formatRecommendations(data) {
-    const recommendations = [];
-
-    if (data.strategicInsights) {
-      const insights = data.strategicInsights;
-      if (insights.marketPosition) recommendations.push(`Market Position: ${insights.marketPosition}`);
-      if (insights.growthOpportunity) recommendations.push(`Growth Opportunity: ${insights.growthOpportunity}`);
-      if (insights.competitiveAdvantage) recommendations.push(`Competitive Advantage: ${insights.competitiveAdvantage}`);
+      if (keywordData.competitionAnalysis) {
+        const comp = keywordData.competitionAnalysis;
+        const highCompPercentage = (comp.highCompetition || 0) / (keywordData.totalKeywordsFound || 1) * 100;
+        if (highCompPercentage > 70) {
+          insights.push('Highly competitive market - consider long-tail keyword strategy');
+        }
+      }
     }
 
-    if (data.budgetGuidance) {
-      const budget = data.budgetGuidance;
-      if (budget.recommendedStarting) recommendations.push(`Recommended Daily Budget: €${budget.recommendedStarting}`);
-      if (budget.monthlyRecommended) recommendations.push(`Monthly Budget: €${budget.monthlyRecommended}`);
+    // Industry insights
+    if (industryData && industryData.benchmarks) {
+      const benchmarks = industryData.benchmarks;
+      insights.push(`Industry average CTR: ${benchmarks.avgCtr || 'N/A'}`);
+      insights.push(`Industry average CPC: ${benchmarks.avgCpc || 'N/A'}`);
+
+      if (industryData.competitiveAnalysis) {
+        insights.push(`Market maturity: ${industryData.competitiveAnalysis.marketMaturity || 'Unknown'}`);
+      }
     }
 
-    if (data.nextSteps && Array.isArray(data.nextSteps)) {
-      recommendations.push(...data.nextSteps);
-    }
-
-    return recommendations;
+    return insights;
   }
 
   // 🔥 NEW: Generate Intelligence Summary
@@ -432,81 +402,6 @@ class GoogleAdsClientService {
     }
 
     return summary;
-  }
-
-  // Generate Market Insights - Enhanced
-  generateMarketInsights(keywordData, industryData) {
-    const insights = [];
-
-    // Keyword insights
-    if (keywordData) {
-      if (keywordData.highVolumeKeywords?.length > 5) {
-        insights.push('Strong market demand with multiple high-volume keywords');
-      }
-
-      if (keywordData.lowCompetitionKeywords?.length > 3) {
-        insights.push('Opportunity for quick wins with low-competition keywords');
-      }
-
-      if (keywordData.avgCpcRange && parseFloat(keywordData.avgCpcRange.avg) > 3.0) {
-        insights.push('High-value market with premium CPC - focus on quality over quantity');
-      }
-
-      if (keywordData.competitionAnalysis) {
-        const comp = keywordData.competitionAnalysis;
-        const highCompPercentage = (comp.highCompetition || 0) / (keywordData.totalKeywordsFound || 1) * 100;
-        if (highCompPercentage > 70) {
-          insights.push('Highly competitive market - consider long-tail keyword strategy');
-        }
-      }
-    }
-
-    // Industry insights
-    if (industryData && industryData.benchmarks) {
-      const benchmarks = industryData.benchmarks;
-      insights.push(`Industry average CTR: ${benchmarks.avgCtr || 'N/A'}`);
-      insights.push(`Industry average CPC: ${benchmarks.avgCpc || 'N/A'}`);
-
-      if (industryData.competitiveAnalysis) {
-        insights.push(`Market maturity: ${industryData.competitiveAnalysis.marketMaturity || 'Unknown'}`);
-      }
-    }
-
-    return insights;
-  }
-
-  // Quick Market Check for Marcus Chat - Enhanced
-  async quickMarketCheck(keyword) {
-    try {
-      if (!keyword || typeof keyword !== 'string') {
-        return null;
-      }
-
-      const response = await this.getMarketIntelligence([keyword.trim()]);
-
-      if (response.success && response.data.keywords) {
-        const keywordData = response.data.keywords.keywords?.[0] || response.data.keywords.topRecommendations?.[0];
-
-        if (keywordData) {
-          const volume = keywordData.avgMonthlySearches || keywordData.volume || 0;
-          const cpc = keywordData.lowTopOfPageBid || keywordData.cpc || '0.00';
-          const competition = keywordData.competition || 'Unknown';
-
-          return {
-            keyword: keywordData.keyword,
-            volume: volume,
-            cpc: cpc,
-            competition: competition,
-            summary: `"${keywordData.keyword}" has ${volume.toLocaleString()} monthly searches with €${cpc} CPC (${competition} competition)`
-          };
-        }
-      }
-
-      return null;
-    } catch (error) {
-      console.error('❌ Quick market check failed:', error);
-      return null;
-    }
   }
 
   // Get authentication headers
