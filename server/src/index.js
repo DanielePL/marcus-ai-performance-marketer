@@ -29,7 +29,7 @@ const marketIntelligenceRoutes = require('./routes/marketIntelligence');
 
 // Import Services
 const livePerformanceService = require('./services/livePerformanceService');
-const GoogleAdsService = require('./services/integrations/googleAdsService');
+const googleAdsService = require('./services/integrations/googleAdsService');
 
 const app = express();
 const server = http.createServer(app);
@@ -153,7 +153,6 @@ app.get('/api/status', async (req, res) => {
     if (process.env.GOOGLE_ADS_DEVELOPER_TOKEN) {
       try {
         console.log('🔌 Testing Google Ads API connection...');
-        const googleAdsService = new GoogleAdsService();
         googleAdsStatus = await googleAdsService.testConnection();
         console.log('🔍 Google Ads test result:', googleAdsStatus);
       } catch (error) {

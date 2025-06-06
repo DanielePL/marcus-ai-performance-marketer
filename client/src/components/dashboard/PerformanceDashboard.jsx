@@ -418,6 +418,20 @@ const PerformanceDashboard = ({ isVisible = true, campaigns = [], realTimeData =
     }
   };
 
+  // 🔥 FIXED: Calculate metric changes (moved BEFORE usage)
+  const calculateMetricChange = (metric) => {
+    // TODO: Implement real historical comparison
+    const changeValues = {
+      roas: '+12.5%',
+      ctr: '+5.8%',
+      cpc: '-8.2%',
+      spend: '+18.7%',
+      conversions: '+23.1%',
+      revenue: '+15.4%'
+    };
+    return changeValues[metric] || '+0.0%';
+  };
+
   // 🔥 REAL METRIC CARDS with live data and improved calculation
   const metricCards = [
     {
@@ -469,20 +483,6 @@ const PerformanceDashboard = ({ isVisible = true, campaigns = [], realTimeData =
       color: colors.success
     }
   ];
-
-  // Calculate metric changes (simplified for now)
-  const calculateMetricChange = (metric) => {
-    // TODO: Implement real historical comparison
-    const changeValues = {
-      roas: '+12.5%',
-      ctr: '+5.8%',
-      cpc: '-8.2%',
-      spend: '+18.7%',
-      conversions: '+23.1%',
-      revenue: '+15.4%'
-    };
-    return changeValues[metric] || '+0.0%';
-  };
 
   // 🔥 FIXED: Manual refresh function
   const handleManualRefresh = async () => {
@@ -989,7 +989,7 @@ const PerformanceDashboard = ({ isVisible = true, campaigns = [], realTimeData =
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes shimmer {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
