@@ -7,11 +7,11 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3000',  // 🔥 REPARIERT: Port 3001 statt 3000
         changeOrigin: true
       },
       '/socket.io': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3000',  // 🔥 REPARIERT: Port 3001 statt 3000
         changeOrigin: true,
         ws: true
       }

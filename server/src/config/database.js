@@ -1,6 +1,6 @@
 // server/src/config/database.js
-// MARCUS AI - Production-Ready MongoDB Database Configuration
-// Optimized for Real-time Performance Marketing Data
+// MARCUS AI - MongoDB Database Configuration
+// Simplified & Compatible Version
 
 const mongoose = require('mongoose');
 
@@ -10,7 +10,7 @@ class DatabaseConfig {
     this.isConnected = false;
     this.connectionAttempts = 0;
     this.maxRetries = 5;
-    this.retryDelay = 3000; // 5 seconds
+    this.retryDelay = 3000;
 
     // Event listeners setup
     this.setupEventListeners();
@@ -20,65 +20,30 @@ class DatabaseConfig {
    * Get MongoDB Connection URI with fallbacks
    */
   getConnectionURI() {
-    // Priority: Environment Variable -> Docker -> Local Development
     return process.env.MONGODB_URI ||
            process.env.DATABASE_URL ||
-           'mongodb://mongodb:27017/marcus-ai' ||
            'mongodb://localhost:27017/marcus-ai';
   }
 
   /**
-   * Get optimized connection options for Marcus AI
+   * Get SIMPLIFIED connection options (compatible with all Mongoose versions)
    */
   getConnectionOptions() {
-    const isProduction = process.env.NODE_ENV === 'production';
-
     return {
-      // Connection Pool Settings (optimiert für Performance Marketing)
-      maxPoolSize: isProduction ? 20 : 10, // Max concurrent connections
-      minPoolSize: isProduction ? 5 : 2,   // Min connections to maintain
-      maxIdleTimeMS: 30000,                // Close connections after 30s idle
-      serverSelectionTimeoutMS: 5000,      // How long to try selecting server
-      socketTimeoutMS: 45000,              // Close sockets after 45s inactivity
-
-      // Replica Set & High Availability
-      retryWrites: true,                   // Retry failed writes
-      retryReads: true,                    // Retry failed reads
-      readPreference: 'primaryPreferred',  // Read from primary, fallback to secondary
-
-      // Performance Optimizations
-      bufferMaxEntries: 0,                 // Disable mongoose buffering for real-time data
-      bufferCommands: false,               // Disable command buffering
+      // Basic options that work everywhere
       useNewUrlParser: true,
       useUnifiedTopology: true,
 
-      // SSL/TLS for Production
-      ...(isProduction && {
-        ssl: true,
-        sslValidate: true,
-        authSource: 'admin'
-      }),
+      // Connection pool (simplified)
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
 
-      // Development optimizations
-      ...(!isProduction && {
-        autoIndex: true,                   // Build indexes automatically in dev
-        debug: process.env.MONGOOSE_DEBUG === 'true'
-      }),
+      // Retry settings
+      retryWrites: true,
 
-      // Application Name for MongoDB logs
-      appName: 'Marcus-AI-Performance-Marketer',
-
-      // Write Concern für Consistency
-      writeConcern: {
-        w: 'majority',                     // Wait for majority of replica set
-        j: true,                          // Wait for journal commit
-        wtimeout: 10000                   // Timeout after 10s
-      },
-
-      // Read Concern für Data Consistency
-      readConcern: {
-        level: 'majority'                 // Read only committed data
-      }
+      // Application name for logs
+      appName: 'Marcus-AI-Performance-Marketer'
     };
   }
 
@@ -90,7 +55,6 @@ class DatabaseConfig {
     mongoose.connection.on('connected', () => {
       console.log('🤖 MARCUS DATABASE: CONNECTED ✅');
       console.log(`📊 MongoDB URI: ${this.maskConnectionString(this.getConnectionURI())}`);
-      console.log(`🔄 Connection Pool: ${mongoose.connection.readyState === 1 ? 'Active' : 'Inactive'}`);
       this.isConnected = true;
       this.connectionAttempts = 0;
     });
@@ -112,14 +76,6 @@ class DatabaseConfig {
     mongoose.connection.on('disconnected', () => {
       console.log('🔌 MARCUS DATABASE: DISCONNECTED');
       this.isConnected = false;
-
-      // Auto-reconnect in production
-      if (process.env.NODE_ENV === 'production') {
-        console.log('🔄 Attempting automatic reconnection...');
-        setTimeout(() => {
-          this.connect();
-        }, this.retryDelay);
-      }
     });
 
     mongoose.connection.on('reconnected', () => {
@@ -127,12 +83,11 @@ class DatabaseConfig {
       this.isConnected = true;
     });
 
-    // SIGINT (Ctrl+C) Graceful Shutdown
+    // Graceful shutdown handlers
     process.on('SIGINT', () => {
       this.gracefulShutdown('SIGINT');
     });
 
-    // SIGTERM (Docker/PM2) Graceful Shutdown
     process.on('SIGTERM', () => {
       this.gracefulShutdown('SIGTERM');
     });
@@ -152,10 +107,11 @@ class DatabaseConfig {
 
       await mongoose.connect(uri, options);
 
-      // Setup Marcus-specific database configurations
-      await this.setupMarcusDatabase();
-
-      return true;
+      // Simple success check
+      if (mongoose.connection.readyState === 1) {
+        console.log('✅ Marcus Database is ready!');
+        return true;
+      }
 
     } catch (error) {
       this.connectionAttempts++;
@@ -179,91 +135,6 @@ class DatabaseConfig {
   }
 
   /**
-   * Setup Marcus-specific database configurations
-   */
-  async setupMarcusDatabase() {
-    try {
-      const db = mongoose.connection.db;
-
-      // Create Marcus-specific indexes for performance
-      console.log('📊 Setting up Marcus database optimizations...');
-
-      // Compound Indexes für Performance Marketing Queries
-      await db.collection('campaigns').createIndex(
-        { userId: 1, status: 1, platform: 1 },
-        { background: true, name: 'marcus_user_status_platform' }
-      );
-
-      await db.collection('campaigns').createIndex(
-        { 'metrics.lastUpdated': -1, status: 1 },
-        { background: true, name: 'marcus_metrics_realtime' }
-      );
-
-      await db.collection('campaigns').createIndex(
-        { platformCampaignId: 1, platform: 1 },
-        { background: true, sparse: true, name: 'marcus_platform_sync' }
-      );
-
-      // Performance Metrics Collection Indexes
-      await db.collection('performancemetrics').createIndex(
-        { campaignId: 1, timestamp: -1 },
-        { background: true, name: 'marcus_performance_timeline' }
-      );
-
-      await db.collection('performancemetrics').createIndex(
-        { userId: 1, date: -1 },
-        { background: true, name: 'marcus_user_performance' }
-      );
-
-      // Market Intelligence Indexes
-      await db.collection('marketintelligence').createIndex(
-        { industry: 1, platform: 1, timestamp: -1 },
-        { background: true, name: 'marcus_market_trends' }
-      );
-
-      // User Analytics Indexes
-      await db.collection('users').createIndex(
-        { email: 1 },
-        { unique: true, background: true, name: 'marcus_user_email' }
-      );
-
-      // TTL Index für temporary data (z.B. AI processing cache)
-      await db.collection('aicache').createIndex(
-        { createdAt: 1 },
-        { expireAfterSeconds: 3600, background: true, name: 'marcus_ai_cache_ttl' }
-      );
-
-      console.log('✅ Marcus database optimizations complete');
-
-      // Log database statistics
-      await this.logDatabaseStats();
-
-    } catch (error) {
-      console.error('⚠️  Warning: Marcus database setup partially failed:', error.message);
-      // Continue anyway - these are optimizations, not critical
-    }
-  }
-
-  /**
-   * Log Database Statistics for Monitoring
-   */
-  async logDatabaseStats() {
-    try {
-      const db = mongoose.connection.db;
-      const stats = await db.stats();
-
-      console.log('📊 MARCUS DATABASE STATS:');
-      console.log(`   📁 Collections: ${stats.collections}`);
-      console.log(`   💾 Data Size: ${(stats.dataSize / 1024 / 1024).toFixed(2)} MB`);
-      console.log(`   🗂️  Index Size: ${(stats.indexSize / 1024 / 1024).toFixed(2)} MB`);
-      console.log(`   📄 Documents: ${stats.objects?.toLocaleString() || 'N/A'}`);
-
-    } catch (error) {
-      console.log('📊 Database stats unavailable:', error.message);
-    }
-  }
-
-  /**
    * Get Database Health Status
    */
   async getHealthStatus() {
@@ -278,7 +149,6 @@ class DatabaseConfig {
         host: mongoose.connection.host,
         port: mongoose.connection.port,
         uptime: process.uptime(),
-        memory: process.memoryUsage(),
         lastCheck: new Date().toISOString()
       };
 

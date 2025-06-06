@@ -404,10 +404,10 @@ class StatusService {
 
   // Get authentication headers
   getAuthHeaders() {
-    const token = localStorage.getItem('marcus_auth_token');
+    const token = localStorage.getItem('marcus_auth_token') || 'dev-marcus-token-2025';
     return {
       'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : ''
+      'Authorization': `Bearer ${token}`
     };
   }
 

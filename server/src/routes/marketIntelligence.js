@@ -2,13 +2,16 @@
 // MARCUS AI - Market Intelligence Routes für Google Ads API Integration
 
 const express = require('express');
-const GoogleAdsService = require('../services/googleAdsService');
 const keywordResearchService = require('../services/keywordResearchService');
 const { authenticateToken } = require('./auth');
 const router = express.Router();
 
 // Initialize Google Ads Service
-const googleAdsService = new GoogleAdsService();
+// const googleAdsService = new googleAdsService();
+// ✅ Behalte nur den Import (sollte etwa Zeile 5 sein):
+const googleAdsService = require('../services/integrations/googleAdsService');
+
+// Dann verwende direkt googleAdsService ohne 'new'
 
 // POST /api/market-intelligence/keyword-research - Live Keyword Research
 router.post('/keyword-research', authenticateToken, async (req, res) => {

@@ -1,6 +1,6 @@
 // client/src/services/googleAds.js
 // Frontend Service für Google Ads API Integration mit Marcus AI
-// 🔥 VOLLSTÄNDIG REPARIERT - Korrekte URL Construction & API Routes
+// 🔥 VOLLSTÄNDIG REPARIERT - Korrekte URL Construction & API Routes + FIXED keywordIdeas.filter
 
 class GoogleAdsClientService {
   constructor() {
@@ -45,7 +45,7 @@ class GoogleAdsClientService {
     }
   }
 
-  // 🔥 ENHANCED: Get Market Intelligence for Marcus with better error handling
+  // 🔥 ENHANCED: Get Market Intelligence for Marcus with FIXED keywordIdeas.filter
   async getMarketIntelligence(keywords, businessInfo = {}) {
     try {
       console.log('🧠 Marcus requesting market intelligence for:', keywords);
@@ -73,6 +73,47 @@ class GoogleAdsClientService {
         throw new Error(keywordData.error || 'Keyword research failed');
       }
 
+      // 🔥 FIXED: Defensive extraction of keyword array from API response
+      let keywordIdeas = [];
+
+      if (keywordData.data) {
+        // Check multiple possible response formats
+        if (Array.isArray(keywordData.data)) {
+          // Direct array: keywordData.data = [...]
+          keywordIdeas = keywordData.data;
+        } else if (keywordData.data.keywords && Array.isArray(keywordData.data.keywords)) {
+          // Nested array: keywordData.data = { keywords: [...] }
+          keywordIdeas = keywordData.data.keywords;
+        } else if (keywordData.data.results && Array.isArray(keywordData.data.results)) {
+          // Alternative format: keywordData.data = { results: [...] }
+          keywordIdeas = keywordData.data.results;
+        }
+      }
+
+      // 🛡️ Safety check: Ensure we have a valid array
+      if (!Array.isArray(keywordIdeas)) {
+        console.warn('⚠️ keywordIdeas is not an array:', keywordIdeas);
+        keywordIdeas = [];
+      }
+
+      console.log(`✅ Extracted ${keywordIdeas.length} keyword ideas for processing`);
+
+      // 🔥 NOW SAFE: Filter and process keywords
+      const highVolumeKeywords = keywordIdeas.filter(keyword => {
+        const volume = keyword.avgMonthlySearches || keyword.volume || 0;
+        return volume >= 1000;
+      });
+
+      const lowCompetitionKeywords = keywordIdeas.filter(keyword => {
+        const competition = keyword.competition || keyword.competitionLevel || 'UNKNOWN';
+        return competition === 'LOW' || competition === 'low' || competition === 'Low';
+      });
+
+      const topRecommendations = keywordIdeas
+        .filter(keyword => (keyword.avgMonthlySearches || keyword.volume || 0) > 100)
+        .sort((a, b) => (b.avgMonthlySearches || b.volume || 0) - (a.avgMonthlySearches || a.volume || 0))
+        .slice(0, 10);
+
       // Get industry benchmarks if industry provided
       let industryData = null;
       if (businessInfo.industry) {
@@ -89,12 +130,56 @@ class GoogleAdsClientService {
         }
       }
 
+      // Calculate market metrics
+      const totalVolume = keywordIdeas.reduce((sum, keyword) => {
+        return sum + (keyword.avgMonthlySearches || keyword.volume || 0);
+      }, 0);
+
+      const averageCpc = keywordIdeas.reduce((sum, keyword) => {
+        const cpc = keyword.lowTopOfPageBid || keyword.highTopOfPageBid || keyword.cpc || 0;
+        return sum + parseFloat(cpc);
+      }, 0) / Math.max(keywordIdeas.length, 1);
+
       // Combine intelligence for Marcus
       const marketIntelligence = {
-        keywords: keywordData.data,
+        keywords: {
+          all: keywordIdeas,
+          topRecommendations: topRecommendations,
+          highVolumeKeywords: highVolumeKeywords,
+          lowCompetitionKeywords: lowCompetitionKeywords,
+          totalKeywordsFound: keywordIdeas.length,
+          marketOpportunity: totalVolume,
+          avgCpcRange: {
+            avg: averageCpc.toFixed(2)
+          },
+          competitionAnalysis: {
+            lowCompetition: lowCompetitionKeywords.length,
+            highCompetition: keywordIdeas.filter(k => {
+              const comp = k.competition || 'UNKNOWN';
+              return comp === 'HIGH' || comp === 'high' || comp === 'High';
+            }).length
+          }
+        },
         industry: industryData,
-        insights: this.generateMarketInsights(keywordData.data, industryData),
-        summary: this.generateIntelligenceSummary(keywordData.data, industryData),
+        insights: this.generateMarketInsights({
+          highVolumeKeywords,
+          lowCompetitionKeywords,
+          avgCpcRange: { avg: averageCpc.toFixed(2) },
+          totalKeywordsFound: keywordIdeas.length,
+          competitionAnalysis: {
+            highCompetition: keywordIdeas.filter(k => {
+              const comp = k.competition || 'UNKNOWN';
+              return comp === 'HIGH' || comp === 'high' || comp === 'High';
+            }).length
+          }
+        }, industryData),
+        summary: this.generateIntelligenceSummary({
+          marketOpportunity: totalVolume,
+          totalKeywordsFound: keywordIdeas.length,
+          avgCpcRange: { avg: averageCpc.toFixed(2) },
+          highVolumeKeywords,
+          lowCompetitionKeywords
+        }, industryData),
         timestamp: new Date().toISOString()
       };
 
@@ -239,7 +324,7 @@ class GoogleAdsClientService {
     }
   }
 
-  // Quick Market Check for Marcus Chat - Enhanced
+  // Quick Market Check for Marcus Chat - Enhanced with DEFENSIVE programming
   async quickMarketCheck(keyword) {
     try {
       if (!keyword || typeof keyword !== 'string') {
@@ -249,7 +334,16 @@ class GoogleAdsClientService {
       const response = await this.getMarketIntelligence([keyword.trim()]);
 
       if (response.success && response.data.keywords) {
-        const keywordData = response.data.keywords.keywords?.[0] || response.data.keywords.topRecommendations?.[0];
+        // 🛡️ Defensive extraction from multiple possible formats
+        let keywordData = null;
+
+        if (response.data.keywords.keywords && Array.isArray(response.data.keywords.keywords)) {
+          keywordData = response.data.keywords.keywords[0];
+        } else if (response.data.keywords.topRecommendations && Array.isArray(response.data.keywords.topRecommendations)) {
+          keywordData = response.data.keywords.topRecommendations[0];
+        } else if (response.data.keywords.all && Array.isArray(response.data.keywords.all)) {
+          keywordData = response.data.keywords.all[0];
+        }
 
         if (keywordData) {
           const volume = keywordData.avgMonthlySearches || keywordData.volume || 0;
@@ -257,11 +351,11 @@ class GoogleAdsClientService {
           const competition = keywordData.competition || 'Unknown';
 
           return {
-            keyword: keywordData.keyword,
+            keyword: keywordData.keyword || keywordData.text || keyword,
             volume: volume,
             cpc: cpc,
             competition: competition,
-            summary: `"${keywordData.keyword}" has ${volume.toLocaleString()} monthly searches with €${cpc} CPC (${competition} competition)`
+            summary: `"${keywordData.keyword || keyword}" has ${volume.toLocaleString()} monthly searches with €${cpc} CPC (${competition} competition)`
           };
         }
       }

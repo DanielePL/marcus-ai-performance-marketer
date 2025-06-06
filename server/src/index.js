@@ -13,6 +13,11 @@ const http = require('http');
 const socketIo = require('socket.io');
 require('dotenv').config();
 
+// ============================================
+// IMPORT MARCUS DATABASE CONFIG (FIXED!)
+// ============================================
+const database = require('./config/database');
+
 // Import Routes
 const authRoutes = require('./routes/auth');
 const campaignRoutes = require('./routes/campaigns');
@@ -24,7 +29,7 @@ const marketIntelligenceRoutes = require('./routes/marketIntelligence');
 
 // Import Services
 const livePerformanceService = require('./services/livePerformanceService');
-const GoogleAdsService = require('./services/googleAdsService');
+const GoogleAdsService = require('./services/integrations/googleAdsService');
 
 const app = express();
 const server = http.createServer(app);
@@ -105,51 +110,36 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // ============================================
-// DATABASE CONNECTION
-// ============================================
-
-const connectDB = async () => {
-  try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/marcus-ai';
-
-    await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
-    console.log('🤖 MARCUS DATABASE: CONNECTED ✅');
-    console.log(`📊 MongoDB: ${mongoURI}`);
-
-    // Start Live Performance Monitoring after DB connection
-    livePerformanceService.startMonitoring();
-
-  } catch (error) {
-    console.error('❌ DATABASE CONNECTION FAILED:', error.message);
-    process.exit(1);
-  }
-};
-
-// ============================================
 // API ROUTES
 // ============================================
 
 // Health Check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'online',
-    timestamp: new Date().toISOString(),
-    service: 'Marcus AI Performance Marketer',
-    version: process.env.npm_package_version || '1.0.0',
-    environment: process.env.NODE_ENV || 'development',
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    uptime: process.uptime()
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbHealth = await database.getHealthStatus();
+
+    res.json({
+      status: 'online',
+      timestamp: new Date().toISOString(),
+      service: 'Marcus AI Performance Marketer',
+      version: process.env.npm_package_version || '1.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      database: dbHealth,
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // API Status Dashboard
 app.get('/api/status', async (req, res) => {
   try {
-    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    const dbHealth = await database.getHealthStatus();
 
     // Check External API Status
     const apiStatus = {
@@ -217,7 +207,7 @@ app.get('/api/status', async (req, res) => {
     res.json({
       status: 'operational',
       timestamp: new Date().toISOString(),
-      database: dbStatus,
+      database: dbHealth,
       external_apis: {
         ...apiStatus,
         openai_status: openaiStatus,
@@ -279,7 +269,6 @@ io.on('connection', (socket) => {
         timestamp: new Date().toISOString()
       });
 
-      // TODO: Process with AI Service (wird in aiConsultantController gemacht)
       console.log(`🤖 AI Request from User ${userId}: ${message}`);
 
     } catch (error) {
@@ -294,7 +283,6 @@ io.on('connection', (socket) => {
   // Handle Campaign Updates
   socket.on('campaign_update_request', (data) => {
     console.log(`📊 Campaign update request:`, data);
-    // TODO: Trigger campaign refresh
   });
 
   socket.on('disconnect', () => {
@@ -332,15 +320,27 @@ app.use('*', (req, res) => {
 });
 
 // ============================================
-// SERVER STARTUP
+// SERVER STARTUP WITH MARCUS DATABASE
 // ============================================
 
 const PORT = process.env.PORT || 3001;
 
 const startServer = async () => {
   try {
-    // Connect to Database first
-    await connectDB();
+    console.log('🤖 Starting Marcus AI Server...');
+
+    // Connect to Database using Marcus Database Config (FIXED!)
+    console.log('📊 Connecting to Marcus Database...');
+    await database.connect();
+
+    // Wait for database to be ready
+    await database.waitForReady(10000); // 10 second timeout
+
+    console.log('✅ Marcus Database is ready!');
+
+    // Start Live Performance Monitoring after DB connection
+    console.log('📊 Starting Live Performance Monitoring...');
+    livePerformanceService.startMonitoring();
 
     // Start Server
     server.listen(PORT, () => {
@@ -350,15 +350,22 @@ const startServer = async () => {
       console.log('🤖 ===============================================');
       console.log(`📡 Server: http://localhost:${PORT}`);
       console.log(`🎯 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`📊 Database: CONNECTED via Marcus Config`);
       console.log(`⚡ Socket.IO: ENABLED`);
       console.log(`🛡️  Security: HELMET + CORS + RATE LIMITING`);
       console.log(`📊 Live Performance Monitoring: ACTIVE`);
+      console.log(`🤖 Marcus Intelligence: ${database.isReady() ? 'ONLINE' : 'OFFLINE'}`);
       console.log('🤖 ===============================================');
       console.log('');
     });
 
   } catch (error) {
     console.error('❌ SERVER STARTUP FAILED:', error);
+    console.error('🔧 Possible fixes:');
+    console.error('   1. Check your .env MONGODB_URI');
+    console.error('   2. Verify MongoDB Atlas IP whitelist');
+    console.error('   3. Check MongoDB Atlas credentials');
+    console.error('   4. Ensure network connectivity');
     process.exit(1);
   }
 };

@@ -9,7 +9,7 @@ const GoogleAdsService = require('../services/integrations/googleAdsService');
 const router = express.Router();
 
 // Initialize Google Ads Service
-const googleAdsService = new GoogleAdsService();
+const googleAdsService = require('../services/integrations/googleAdsService');
 
 // 🔥 POST /api/google-ads/keyword-research - Marcus Market Intelligence
 router.post('/keyword-research', authenticateToken, async (req, res) => {

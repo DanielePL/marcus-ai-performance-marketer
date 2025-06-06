@@ -135,3 +135,4 @@ playwright-report/
 # Backup files
 *.backup
 *.bak
+.marcus-memory/
